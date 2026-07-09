@@ -7,11 +7,10 @@ import com.example.parcial.parcial2.domain.entities.Genre;
 import com.example.parcial.parcial2.repositories.BookRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+
+import static org.springframework.util.StringUtils.hasText;
+
 
 @Service
 public class BookService {
@@ -24,67 +23,73 @@ public class BookService {
 
     public Book createBook(BookRequestDto dto) {
         Book book = new Book();
-        book.setTitle(dto.getTitle());
-        book.setAuthor(dto.getAuthor());
-        book.setGenre(Genre.valueOf(dto.getGenre()));
-        book.setIsbn(dto.getIsbn());
-        book.setAvailable(dto.isAvailable());
-        book.setAvailableCount(dto.getAvailableCount());
+        updateBookFromDto(book, dto);
         book.setActive(true);
         return bookRepository.save(book);
     }
 
     public Book getBookById(UUID id) {
-        return bookRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
+        return findBookById(id);
     }
 
     public List<Book> getAllBooks(String author, String genre) {
-        if (author != null && genre != null) {
-            return bookRepository.findByAuthorAndGenre(genre, author);
-        } else if (author != null) {
-            return bookRepository.findByAuthor(author);
-        } else if (genre != null) {
-            return bookRepository.findByGenre(Genre.valueOf(genre));
+        boolean hasAuthor = hasText(author);
+        boolean hasGenre = hasText(genre);
+
+        if (hasAuthor && hasGenre) {
+            return bookRepository.findByAuthorAndGenre(author, parseGenre(genre));
         }
+
+        if (hasAuthor) {
+            return bookRepository.findByAuthor(author);
+        }
+
+        if (hasGenre) {
+            return bookRepository.findByGenre(parseGenre(genre));
+        }
+
         return bookRepository.findAll();
     }
 
     public Book updateBook(UUID id, BookRequestDto dto) {
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
-        book.setTitle(dto.getTitle());
-        book.setAuthor(dto.getAuthor());
-        if (dto.getGenre() != null) {
-            book.setGenre(Genre.valueOf(dto.getGenre().toUpperCase()));
-        }
-        book.setIsbn(dto.getIsbn());
-        book.setAvailable(dto.isAvailable());
-        book.setAvailableCount(dto.getAvailableCount());
+        Book book = findBookById(id);
+        updateBookFromDto(book, dto);
         return bookRepository.save(book);
     }
 
     public void deleteBook(UUID id) {
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Book not found"));
+        Book book = findBookById(id);
         book.setActive(false);
         bookRepository.save(book);
     }
 
     public List<GenreCountDto> getGenresAvailable() {
-        List<Book> books = bookRepository.findAll();
-        Map<String, Long> countByGenre = new HashMap<>();
+        return bookRepository.countAvailableBooksByGenre();
+    }
 
-        for (Book book : books) {
-            String genreName = book.getGenre().name();
-            countByGenre.put(genreName, countByGenre.getOrDefault(genreName, 0L) + 1);
+    private Genre parseGenre(String genre) {
+        if (!hasText(genre)) {
+            return null;
         }
+        return Genre.valueOf(genre.trim().toUpperCase(Locale.ROOT));
+    }
 
-        List<GenreCountDto> result = new ArrayList<>();
-        for (Map.Entry<String, Long> entry : countByGenre.entrySet()) {
-            result.add(new GenreCountDto(entry.getKey(), entry.getValue()));
-        }
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
 
-        return result;
+    private Book findBookById(UUID id) {
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Book not found"));
+    }
+
+    private void updateBookFromDto(Book book, BookRequestDto dto) {
+        book.setTitle(dto.getTitle());
+        book.setAuthor(dto.getAuthor());
+        book.setGenre(parseGenre(dto.getGenre()));
+        book.setIsbn(dto.getIsbn());
+        book.setAvailable(dto.isAvailable());
+        book.setAvailableCount(dto.getAvailableCount());
     }
 }
+

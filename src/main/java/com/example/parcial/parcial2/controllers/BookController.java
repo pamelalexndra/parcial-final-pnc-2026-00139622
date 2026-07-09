@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+
 @RestController
 @RequestMapping("/books")
 public class BookController {
@@ -33,6 +34,11 @@ public class BookController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Book> getBookById(@PathVariable UUID id) {
+        return ResponseEntity.ok(bookService.getBookById(id));
+    }
+
+    @GetMapping(params = "id")
+    public ResponseEntity<Book> getBookByIdParam(@RequestParam UUID id) {
         return ResponseEntity.ok(bookService.getBookById(id));
     }
 
